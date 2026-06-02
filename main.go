@@ -2,13 +2,10 @@ package main
 
 import (
 	"fmt"
-	// "os"
-	// "bufio"
-	// "strconv"
-	// "io"
-	// "strings"
-
 	"net"
+	"strings"
+
+	"github.com/mohamedkaram400/redis-clone/resp"
 )
 
 
@@ -31,55 +28,37 @@ func main() {
 
 	defer conn.Close()
 
-	// input := "$5\r\nAhmed\r\n"
-	// reader := bufio.NewReader(strings.NewReader(input))
-
-	// b, _ := reader.ReadByte()
-
-	// if b != '$' {
-	// 	fmt.Println("Invaild type, expecting bulk strings only")
-	// 		os.Exit(1)
-	// }
-
-	// size, _ := reader.ReadByte()
-
-	// strSize, _ := strconv.ParseInt(string(size), 10, 64)
-
-	// // consume /r/n
-	// reader.ReadByte()
-	// reader.ReadByte()
-
-	// name := make([]byte, strSize)
-	// reader.Read(name)
-
-	// fmt.Println(string(name))
 
 	for {
-		reps := NewResp(conn)
+		reps := resp.NewResp(conn)
 		value, err := reps.Read()
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 
-		fmt.Println(value)
+		if value.Typ != "array" {
+			fmt.Println("Invalid request, expected array")
+			continue
+		}
 
-		// ignore request and send back a PONG
-		conn.Write([]byte("+OK\r\n"))
+		if len(value.Array) == 0 {
+			fmt.Println("Invalid request, expected array length > 0")
+			continue
+		}
 
-		// buf := make([]byte, 1024)
+		command := strings.ToUpper(value.Array[0].Bulk)
+		args := value.Array[1:]
+		
+		writer := resp.NewWriter(conn)
 
-		// // Read message from client
-		// _, err := conn.Read(buf)
-		// if err != nil {
-		// 	if err == io.EOF {
-		// 		break
-		// 	}
-		// 	fmt.Println("error reading from cleint: ", err.Error())
-		// 	os.Exit(1)
-		// }
-
-		// // Ignore request and send back a PONG
-		// conn.Write([]byte("+OK\r\n"))
+		handler, ok := Handlers[command]
+		if !ok {
+			fmt.Println("Invalid command: ", command)
+			writer.Write(resp.Value{Typ: "string", Str: "ERR unknown command"})
+			continue
+		}
+		result := handler(args)
+		writer.Write(result)
 	}
 }

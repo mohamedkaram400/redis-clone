@@ -1,38 +1,12 @@
-package main
+package resp
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"strconv"
 )
 
-const (
-	STRING  = '+'
-	ERROR   = '-'
-	INTEGER = ':'
-	BULK    = '$'
-	ARRAY   = '*'
-)
 
-
-type Value struct {
-	typ string
-	str string
-	num int
-	bulk string
-	array []Value
-}
-
-
-type Resp struct {
-	reader *bufio.Reader
-}
-
-func NewResp(rd io.Reader) *Resp {
-	return &Resp{reader: bufio.NewReader(rd)}
-}
-
+// Read RESP
 func (r *Resp) readLine() (line []byte, n int, err error) {
 	for {
 		b, err := r.reader.ReadByte()
@@ -79,10 +53,9 @@ func (r *Resp) Read() (Value, error) {
 	}
 }
 
-
 func (r *Resp) readArray() (Value, error) {
 	v := Value{}
-	v.typ = "array"
+	v.Typ = "array"
 
 	// read the length of the array
 	length, _, err := r.readInteger()
@@ -91,21 +64,21 @@ func (r *Resp) readArray() (Value, error) {
 	}
 
 	// foreach line parse and read the value 
-	v.array = make([]Value, length)
+	v.Array = make([]Value, length)
 	for i := 0; i < length; i++ {
 		val, err := r.Read()
 		if err != nil {
 			return v, err
 		}
 		// add parsed value to the array
-		v.array[i] = val
+		v.Array[i] = val
 	}
 	return v, nil
 }
 
 func (r *Resp) readBulk() (Value, error) {
 	v := Value{}
-	v.typ = "bulk"
+	v.Typ = "bulk"
 
 	len, _, err := r.readInteger()
 	if err != nil {
@@ -115,13 +88,14 @@ func (r *Resp) readBulk() (Value, error) {
 	bulk := make([]byte, len)
 
 	r.reader.Read(bulk)
-	v.bulk = string(bulk)
+	v.Bulk = string(bulk)
 
 	// Read the trailing CRLF
 	r.readLine()
 
 	return v, nil
 }
+
 
 
 
