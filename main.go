@@ -26,6 +26,7 @@ func main() {
 		return
 	}
 
+	// Close the connection after method executed
 	defer conn.Close()
 
 
