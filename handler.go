@@ -11,6 +11,9 @@ var Handlers = map[string]func([]resp.Value) resp.Value{
 	"PING": ping,
 	"SET": set,
 	"GET": get,
+	"HSET": hset,
+	"HGET": hget,
+	// "HGETALL": hgetall,
 }
 
 func ping(args []resp.Value) resp.Value {
@@ -19,6 +22,10 @@ func ping(args []resp.Value) resp.Value {
 	}
 	return resp.Value{Typ: "string", Str: args[0].Bulk}
 }
+
+// ==================================
+// Normal get and set methods
+// ==================================
 
 var SETs = map[string]string{}
 var SETsMu = sync.RWMutex{}
@@ -54,3 +61,52 @@ func get(args []resp.Value) resp.Value {
 	}
 	return resp.Value{Typ: "bulk", Bulk: value}
 }
+
+
+// ==================================
+// get and set with Hash Map within a Hash Map
+// ==================================
+
+var HSETs = map[string]map[string]string{}
+var HSETsMu = sync.RWMutex{}
+
+func hset(args []resp.Value) resp.Value {
+	if len(args) != 3 {
+		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'hset' command"}
+	}
+	hash := args[0].Bulk
+	key := args[1].Bulk
+	value := args[2].Bulk
+
+	HSETsMu.Lock()
+	if _, ok := HSETs[hash]; !ok {
+		HSETs[hash] = map[string]string{}
+	}
+	HSETs[hash][key] = value
+	HSETsMu.Unlock()
+
+	return resp.Value{Typ: "string", Str: "OK"}
+}
+
+func hget(args []resp.Value) resp.Value {
+	if len(args) != 2 {
+		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'hget' command"}
+	}
+
+	hash := args[0].Bulk
+	key := args[1].Bulk
+
+	HSETsMu.RLock()
+	value, ok := HSETs[hash][key]
+	HSETsMu.RUnlock()
+
+	if !ok {
+		return resp.Value{Typ: "null"}
+	}
+
+	return resp.Value{Typ: "bulk", Bulk: value}
+}
+
+// func hgetall(args []resp.Resp) resp.Value {
+
+// }
